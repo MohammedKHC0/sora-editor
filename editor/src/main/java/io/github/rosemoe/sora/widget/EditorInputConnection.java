@@ -203,8 +203,7 @@ class EditorInputConnection extends BaseInputConnection {
     protected CharSequence getTextRegion(int start, int end, int flags) {
         try {
             var res = getTextRegionInternal(start, end, flags, false);
-            if (DEBUG)
-                logger.d("getTextRegion result:" + res);
+
             return res;
         } catch (IndexOutOfBoundsException e) {
             logger.w("Failed to get text region for IME", e);
@@ -215,8 +214,6 @@ class EditorInputConnection extends BaseInputConnection {
     protected CharSequence getTextRegionUnlimited(int start, int end, int flags) {
         try {
             var res = getTextRegionInternal(start, end, flags, true);
-            if (DEBUG)
-                logger.d("getTextRegion result:" + res);
             return res;
         } catch (IndexOutOfBoundsException e) {
             logger.w("Failed to get text region for IME", e);
@@ -384,21 +381,15 @@ class EditorInputConnection extends BaseInputConnection {
     public synchronized boolean beginBatchEdit() {
         if (DEBUG)
             logger.d("beginBatchEdit");
-        if (editor.getProps().disallowSuggestions) {
-            return editor.getText().isInBatchEdit(); // Do not start new batch edit layer
-        }
-        return editor.getText().beginBatchEdit();
+        
+        return true;
     }
 
     @Override
     public synchronized boolean endBatchEdit() {
         if (DEBUG)
             logger.d("endBatchEdit");
-        boolean inBatch = editor.getText().endBatchEdit();
-        if (!inBatch) {
-            editor.updateSelection();
-        }
-        return inBatch;
+        return true;
     }
 
     private void deleteSelected() {
@@ -428,17 +419,13 @@ class EditorInputConnection extends BaseInputConnection {
             // Create composing info
             deleteSelected();
             beginBatchEdit();
-            composingText.preSetComposing = true;
+            //composingText.preSetComposing = true;
             editor.commitText(text);
             composingText.set(getCursor().getLeft() - text.length(), getCursor().getLeft());
         } else {
             // Already have composing text
             if (composingText.isComposing()) {
-                if (editor.getProps().minimizeComposingTextUpdate) {
-                    setComposingTextCompat(text.toString());
-                } else {
                     editor.getText().replace(composingText.startIndex, composingText.endIndex, text);
-                }
                 // Reset range
                 composingText.adjustLength(text.length());
             }
@@ -478,7 +465,7 @@ class EditorInputConnection extends BaseInputConnection {
         }
         composingText.reset();
         endBatchEdit();
-        editor.updateCursor();
+        //editor.updateCursor();
         editor.invalidate();
         return true;
     }
@@ -529,21 +516,6 @@ class EditorInputConnection extends BaseInputConnection {
             return true;
         }
         try {
-            if (start > end) {
-                int tmp = start;
-                start = end;
-                end = tmp;
-            }
-            if (start < 0) {
-                start = 0;
-            }
-            var content = editor.getText();
-            if (end > content.length()) {
-                end = content.length();
-            }
-            if (start >= end) {
-                return false;
-            }
             composingText.set(start, end);
             editor.invalidate();
         } catch (IndexOutOfBoundsException e) {
@@ -594,6 +566,9 @@ class EditorInputConnection extends BaseInputConnection {
         if (DEBUG)
             logger.d("getExtractedText, flags = " + flags);
         if (editor.getProps().disallowSuggestions || editor.getProps().disableTextExtracting) {
+            return null;
+        }
+        if (!editor.isLineNumberEnabled()) {
             return null;
         }
         if ((flags & GET_EXTRACTED_TEXT_MONITOR) != 0) {
